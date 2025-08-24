@@ -7,6 +7,7 @@ const Adapter = require('simple-odata-server-mongodb');
 const cors = require('cors');
 const productRouter = require('./routers/product.router');
 const productODataModel = require('./OData/product-odataModel');
+const mongooseODataAdapter = require('./OData/mongooseODataAdapter');
 const port = process.env.PORT || 3000;
 
 const app = express();
@@ -20,14 +21,14 @@ app.listen(port, () => {
   console.log(`Server is up and running !!`);
 });
 
-const odataServer = ODataServer().model(productODataModel);
-
 mongoose.connect("mongodb+srv://digvijay2435chauhan:WFFDDL4ZKp8qqZPb@cluster0.he9yo.mongodb.net/ecommerce-dev?retryWrites=true&w=majority&appName=Cluster0").then(() => {
     console.log("Database Connected Successfully !");
-    odataServer.adapter(Adapter(mongoose.connection));
 }).catch(error => {
     console.log(error);
 });
+
+const odataServer = ODataServer().model(productODataModel);
+odataServer.adapter(mongooseODataAdapter());
 
 app.use('/odata', (req, res) => {
   odataServer.handle(req, res);
