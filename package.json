@@ -16,6 +16,9 @@
     "express": "^5.1.0",
     "mongoose": "^8.18.0",
     "multer": "^2.0.2",
-    "serverless-http": "^3.2.0"
+    "odata-v4-server": "^0.2.13",
+    "serverless-http": "^3.2.0",
+    "simple-odata-server": "^1.2.2",
+    "simple-odata-server-mongodb": "^1.0.0"
   }
 }
