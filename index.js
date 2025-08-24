@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const productRouter = require('./routers/product.router');
+const port = process.env.PORT || 3000;
 
 const app = express();
 
@@ -12,7 +13,7 @@ app.use(cors());
 
 app.use('/product', productRouter);
 
-app.listen(3000, () => {
+app.listen(port, () => {
   console.log(`Server is up and running !!`);
 });
 
