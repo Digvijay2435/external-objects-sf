@@ -1,43 +1,59 @@
 const express = require('express');
 const serverless = require('serverless-http');
-const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const { MongoClient } = require('mongodb');
 const ODataServer = require('simple-odata-server');
 const Adapter = require('simple-odata-server-mongodb');
 const cors = require('cors');
+
 const productRouter = require('./routers/product.router');
 const productODataModel = require('./OData/product-odataModel');
-const mongooseODataAdapter = require('./OData/mongooseODataAdapter');
-const port = process.env.PORT || 3000;
+const { init: initProductService } = require('./services/product.service');
 
 const app = express();
+const port = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 app.use(cors());
-
 app.use('/product', productRouter);
 
-app.listen(port, () => {
-  console.log(`Server is up and running !!`);
-});
 
-mongoose.connect("mongodb+srv://digvijay2435chauhan:WFFDDL4ZKp8qqZPb@cluster0.he9yo.mongodb.net/ecommerce-dev?retryWrites=true&w=majority&appName=Cluster0").then(() => {
-    console.log("Database Connected Successfully !");
-}).catch(error => {
-    console.log(error);
-});
+async function start() {
+  const mongoUri = "mongodb+srv://digvijay2435chauhan:WFFDDL4ZKp8qqZPb@cluster0.he9yo.mongodb.net/ecommerce-dev?retryWrites=true&w=majority&appName=Cluster0";
 
-const odataServer = ODataServer().model(productODataModel);
-odataServer.adapter(mongooseODataAdapter());
+  if (!mongoUri) {
+    console.error('MONGODB_URI environment variable not set');
+    process.exit(1);
+  }
 
-app.use('/odata', (req, res) => {
-  odataServer.handle(req, res);
-});
+  try {
+    const mongoClient = new MongoClient(mongoUri);
 
+    // Connect to MongoDB Atlas
+    await mongoClient.connect();
+    console.log('MongoDB Atlas connected');
 
+    const db = mongoClient.db();
+
+    // Initialize your product service with native driver db
+    initProductService(db);
+
+    // Setup OData server
+    const odataServer = ODataServer().model(productODataModel);
+    odataServer.adapter(Adapter(db));
+
+    app.use('/odata', (req, res) => odataServer.handle(req, res));
+
+    app.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+    });
+
+  } catch (e) {
+    console.error('Failed to connect to MongoDB Atlas:', e);
+    process.exit(1);
+  }
+}
+
+start();
 const handler = serverless(app);
-
-module.exports.handler = async (event, context) => {
-    const result = await handler(event, context);
-    return result;
-};
+module.exports.handler = async (event, context) => handler(event, context);

@@ -1,6 +1,6 @@
 const productService = require('../services/product.service');
 
-const mongooseODataAdapter = () => ({
+const mongooseODataAdapter = (server) => ({
   find: async (entitySetName, cb) => {
     try {
       if (entitySetName === 'Products') {

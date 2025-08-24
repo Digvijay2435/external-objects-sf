@@ -1,50 +1,70 @@
-const productModel = require('../models/product.model');
+const { ObjectId } = require('mongodb');
+const { collectionName, productValidationSchema } = require('../models/product.model');
 
-const productService = {
-    getAll: () => {
-        return productModel.find();
-    },
-    getById: (id) => {
-        return productModel.findById(id);
-    },
-    create: (data) => {
-        const productData = new productModel(data);
-        return productData.save();
-    },
-    update: (productId, data) => {
-        return productModel.findByIdAndUpdate(productId, { $set: data }, { new: true });
-    },
-    getProductsByCategory: (categoryName, limit) => {
-        return productModel.aggregate([
-            {
-                $match: {
-                    rating: { $gt: 4 },
-                    category: categoryName
-                }
-            },
-            { $limit: limit }
-        ]);
-    },
-    getProductsCount: (input) => {
-        return productModel.countDocuments({
-            $or: [
-              { name: input },
-              { category: input },
-              { brand: input },
-              { features: { $in: [input] } }
-            ]
-          });
-    },
-    search: (input) => {
-        return productModel.find({
-            $or: [
-              { name: input },
-              { category: input },
-              { brand: input },
-              { features: { $in: [input] } }
-            ]
-          });
-    }
+let productsCollection;
+
+function init(db) {
+  productsCollection = db.collection(collectionName);
 }
 
-module.exports = productService;
+const productService = {
+  getAll: () => productsCollection.find().toArray(),
+
+  getById: (id) => productsCollection.findOne({ _id: new ObjectId(id) }),
+
+  create: async (data) => {
+    const { error, value } = productValidationSchema.validate(data);
+    if (error) throw new Error(error.details[0].message);
+
+    const result = await productsCollection.insertOne(value);
+    return result.ops[0];
+  },
+
+  update: async (id, data) => {
+    const { error, value } = productValidationSchema.validate(data);
+    if (error) throw new Error(error.details[0].message);
+
+    const result = await productsCollection.findOneAndUpdate(
+      { _id: new ObjectId(id) },
+      { $set: value },
+      { returnDocument: 'after' }
+    );
+
+    return result.value;
+  },
+
+  getProductsByCategory: (categoryName, limit) =>
+    productsCollection.aggregate([
+      { $match: { rating: { $gt: 4 }, category: categoryName } },
+      { $limit: parseInt(limit, 10) }
+    ]).toArray(),
+
+  getProductsCount: (input) => {
+    const query = {
+      $or: [
+        { name: input },
+        { category: input },
+        { brand: input },
+        { features: { $in: [input] } }
+      ]
+    };
+    return productsCollection.countDocuments(query);
+  },
+
+  search: (input) => {
+    const query = {
+      $or: [
+        { name: input },
+        { category: input },
+        { brand: input },
+        { features: { $in: [input] } }
+      ]
+    };
+    return productsCollection.find(query).toArray();
+  }
+};
+
+module.exports = {
+  init,
+  productService
+};

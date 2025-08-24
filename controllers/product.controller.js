@@ -1,195 +1,131 @@
+// controllers/product.controller.js
+
 const cloudinary = require('cloudinary').v2;
-const productService = require('../services/product.service');
+const { productService } = require('../services/product.service');
 
 cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 async function searchProducts(pageIndex, pageSize, searchInput) {
+  const noOfDocuments = await productService.getProductsCount(searchInput);
 
-    const noOfDocuments = await productService.getProductsCount(searchInput);
+  const metadata = {
+    noOfPages: Math.ceil(noOfDocuments / pageSize),
+    hasNext: Math.ceil(noOfDocuments / pageSize) > parseInt(pageIndex) + 1,
+    hasPrevious: pageIndex > 0,
+  };
 
-    const metadata = {
-        noOfPages: Math.ceil(noOfDocuments / pageSize),
-        hasNext: Math.ceil(noOfDocuments / pageSize) > parseInt(pageIndex) + 1,
-        hasPrevious: pageIndex > 0,
-    }
+  const product = await productService.search(searchInput);
+  const paginated = product.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
 
-    const product = await productService.search(searchInput)
-        .skip(pageIndex * pageSize)
-        .limit(pageSize);
+  if (!paginated.length) {
+    return;
+  }
 
-    if (!product?.length > 0) {
-        return;
-    }
-
-    return {
-        message : "Succefully retrived the products !!",
-        data : product,
-        metadata : metadata
-    }
-
+  return {
+    message: "Successfully retrieved the products !!",
+    data: paginated,
+    metadata: metadata,
+  };
 }
 
 const productController = {
-    getAll: async (request, response) => {
-        try {
-            const productData = await productService.getAll();
-            response.status(200);
-            response.send({
-                message: "Products retrived successfully !!",
-                data: productData
-            });
-        } catch (error) {
-            response.status(500);
-            response.send({
-                message: "Unable to retirved all products",
-                error: error
-            });
-        }
-    },
-    getById: async (request, response) => {
-        try {
-            const productData = await productService.getById(request.params.id);
-            response.status(200);
-            response.send({
-                message: "Product data retrieved successfully !!",
-                data: productData
-            });
-        } catch (error) {
-            response.status(500);
-            response.send({
-                message: "Unable to retrieve product",
-                error: error
-            });
-        }
-    },
-    create: async (request, response) => {
-        try {
-            const productData = await productService.create(request.body);
-            response.status(201);
-            response.send({
-                message: "Product Created.",
-                data: productData
-            });
-        } catch (error) {
-            response.status(500);
-            response.send({
-                message: "Unable to create product",
-                error: error
-            });
-        }
-    },
-    update: async (request, response) => {
-        try {
-            const productData = await productService.update(request.params.id, request.body);
-            response.status(201);
-            response.send({
-                message: "Product data updated !!",
-                data: productData
-            });
-        } catch (error) {
-            response.status(500);
-            response.send({
-                message: "Unable to update the product data !!",
-                error: error
-            });
-        }
-    },
-    uploadImages: async (request, response) => {
-        try {
-            const stream = cloudinary.uploader.upload_stream(
-                { resource_type: 'auto' },
-                async (error, result) => {
-                    if (error) {
-                        response.status(500);
-                        response.send({
-                            message: "Unable to upload image",
-                            error: "Error - Cloudinary"
-                        });
-                    } else {
-                        console.log('result -> ' + result.secure_url);
-                        const productData = await productService.getById(request.body.productId);
-                        productData["imageUrl"] = result.secure_url
-
-                        const updatedProductData = await productService.update(request.body.productId, productData);
-                        response.status(200);
-                        response.send({
-                            message: "Product Image Uploaded Successfully",
-                            data: updatedProductData
-                        });
-                    }
-                }
-            );
-            stream.end(request.file.buffer);
-        } catch (error) {
-            response.status(500);
-            response.send({
-                message: "Unable to upload image",
-                error: error
-            });
-        }
-    },
-    getProductsByCategory: async (request, response) => {
-        try {
-
-            const { name, limit } = request.query;
-            const productData = await productService.getProductsByCategory(name, parseInt(limit));
-            response.status(200);
-            response.send({
-                message: "Products retrieved succesfully !!",
-                data: productData
-            });
-        } catch (error) {
-            response.status(500);
-            response.send({
-                message: "Unable to retireve products",
-                error: error
-            });
-        }
-    },
-    searchProducts : async (request, response) => {
-        try {
-            const { pageIndex, pageSize, input } = request.query;
-            const searchInput = new RegExp(input, "i");
-            const result = await searchProducts(pageIndex, pageSize, searchInput);
-            if(!result){
-                response.status(404).send({
-                    message : `We couldn't find any products for '${input}'.`
-                });
-                return;
-            }
-
-            response.status(200).send(result);
-        } catch (error) {
-            response.status(500);
-            response.send({
-                message: "Unable to find the products !!",
-                error: error
-            });
-        }
-    },
-    searchProductsByCategory: async (request, response) => {
-        try {
-            const { pageIndex, pageSize, input } = request.query;
-            const searchInput = { category: { $regex: new RegExp(input, "i") } }
-            const result = await searchProducts(pageIndex, pageSize, searchInput);
-            if(!result){
-                return;
-            }
-
-            response.status(200).send(result);
-        } catch (error) {
-            response.status(500);
-            response.send({
-                message: "Unable to update the product data.",
-                error: error
-            });
-        }
+  getAll: async (req, res) => {
+    try {
+      const data = await productService.getAll();
+      res.status(200).send({ message: "Products retrieved successfully !!", data });
+    } catch (error) {
+      res.status(500).send({ message: "Unable to retrieve all products", error });
     }
-}
+  },
 
+  getById: async (req, res) => {
+    try {
+      const data = await productService.getById(req.params.id);
+      res.status(200).send({ message: "Product data retrieved successfully !!", data });
+    } catch (error) {
+      res.status(500).send({ message: "Unable to retrieve product", error });
+    }
+  },
+
+  create: async (req, res) => {
+    try {
+      const data = await productService.create(req.body);
+      res.status(201).send({ message: "Product Created.", data });
+    } catch (error) {
+      res.status(500).send({ message: "Unable to create product", error });
+    }
+  },
+
+  update: async (req, res) => {
+    try {
+      const data = await productService.update(req.params.id, req.body);
+      res.status(201).send({ message: "Product data updated !!", data });
+    } catch (error) {
+      res.status(500).send({ message: "Unable to update product data !!", error });
+    }
+  },
+
+  uploadImages: async (req, res) => {
+    try {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: 'auto' },
+        async (error, result) => {
+          if (error) {
+            return res.status(500).send({ message: "Unable to upload image", error: 'Error - Cloudinary' });
+          }
+          const productData = await productService.getById(req.body.productId);
+          productData.imageUrl = result.secure_url;
+          const updatedProductData = await productService.update(req.body.productId, productData);
+          res.status(200).send({ message: "Product Image Uploaded Successfully", data: updatedProductData });
+        }
+      );
+      stream.end(req.file.buffer);
+    } catch (error) {
+      res.status(500).send({ message: "Unable to upload image", error });
+    }
+  },
+
+  getProductsByCategory: async (req, res) => {
+    try {
+      const { name, limit } = req.query;
+      const data = await productService.getProductsByCategory(name, limit);
+      res.status(200).send({ message: "Products retrieved successfully !!", data });
+    } catch (error) {
+      res.status(500).send({ message: "Unable to retrieve products", error });
+    }
+  },
+
+  searchProducts: async (req, res) => {
+    try {
+      const { pageIndex, pageSize, input } = req.query;
+      const regInput = new RegExp(input, "i");
+      const result = await searchProducts(parseInt(pageIndex), parseInt(pageSize), regInput);
+      if (!result) {
+        return res.status(404).send({ message: `We couldn't find any products for '${input}'.` });
+      }
+      res.status(200).send(result);
+    } catch (error) {
+      res.status(500).send({ message: "Unable to find the products !!", error });
+    }
+  },
+
+  searchProductsByCategory: async (req, res) => {
+    try {
+      const { pageIndex, pageSize, input } = req.query;
+      const searchInput = { category: { $regex: new RegExp(input, "i") } };
+      const result = await searchProducts(parseInt(pageIndex), parseInt(pageSize), searchInput);
+      if (!result) {
+        return res.status(404).send({ message: `No products found for category '${input}'.` });
+      }
+      res.status(200).send(result);
+    } catch (error) {
+      res.status(500).send({ message: "Unable to update the product data.", error });
+    }
+  }
+};
 
 module.exports = productController;
