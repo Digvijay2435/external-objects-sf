@@ -40,7 +40,7 @@ async function start() {
 
     // Setup OData server
     const odataServer = ODataServer().model(productODataModel);
-    odataServer.adapter(Adapter(db));
+    odataServer.adapter(Adapter(mongoClient));
 
     app.use('/odata', (req, res) => odataServer.handle(req, res));
 
