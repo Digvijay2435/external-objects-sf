@@ -1,59 +1,51 @@
 const express = require('express');
-const serverless = require('serverless-http');
-const bodyParser = require('body-parser');
-const { MongoClient } = require('mongodb');
-const ODataServer = require('simple-odata-server');
-const Adapter = require('simple-odata-server-mongodb');
+const mongoose = require('mongoose');
 const cors = require('cors');
-
-const productRouter = require('./routers/product.router');
-const productODataModel = require('./OData/product-odataModel');
-const { init: initProductService } = require('./services/product.service');
+require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-app.use(bodyParser.json());
+// Middleware
 app.use(cors());
-app.use('/product', productRouter);
+app.use(express.json());
 
+// MongoDB Connection
+const MONGODB_URI = 'mongodb+srv://digvijay2435chauhan:WFFDDL4ZKp8qqZPb@cluster0.he9yo.mongodb.net/ecommerce-dev?retryWrites=true&w=majority&appName=Cluster0';
 
-async function start() {
-  const mongoUri = "mongodb+srv://digvijay2435chauhan:WFFDDL4ZKp8qqZPb@cluster0.he9yo.mongodb.net/ecommerce-dev?retryWrites=true&w=majority&appName=Cluster0";
+mongoose.connect(MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('Connected to MongoDB Atlas'))
+.catch(err => console.error('MongoDB connection error:', err));
 
-  if (!mongoUri) {
-    console.error('MONGODB_URI environment variable not set');
-    process.exit(1);
-  }
+// OData Routes
+const odataRoutes = require('./routers/odata.router');
+app.use('/odata', odataRoutes);
 
-  try {
-    const mongoClient = new MongoClient(mongoUri);
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'MongoDB Products OData API for Salesforce',
+    endpoints: {
+      odataService: '/odata',
+      metadata: '/odata/$metadata',
+      products: '/odata/Products',
+      health: '/odata/health'
+    },
+    usage: {
+      getAllProducts: 'GET /odata/Products',
+      filterExample: 'GET /odata/Products?$filter=Price gt 100',
+      topExample: 'GET /odata/Products?$top=10',
+      orderByExample: 'GET /odata/Products?$orderby=Price desc'
+    }
+  });
+});
 
-    // Connect to MongoDB Atlas
-    await mongoClient.connect();
-    console.log('MongoDB Atlas connected');
-
-    const db = mongoClient.db();
-
-    // Initialize your product service with native driver db
-    initProductService(db);
-
-    // Setup OData server
-    const odataServer = ODataServer().model(productODataModel);
-    odataServer.adapter(Adapter(mongoClient));
-
-    app.use('/odata', (req, res) => odataServer.handle(req, res));
-
-    app.listen(port, () => {
-      console.log(`Server is running on port ${port}`);
-    });
-
-  } catch (e) {
-    console.error('Failed to connect to MongoDB Atlas:', e);
-    process.exit(1);
-  }
-}
-
-start();
-const handler = serverless(app);
-module.exports.handler = async (event, context) => handler(event, context);
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`OData service available at: http://localhost:${PORT}/odata`);
+  console.log(`Metadata: http://localhost:${PORT}/odata/$metadata`);
+});

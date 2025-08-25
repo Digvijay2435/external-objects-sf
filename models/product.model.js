@@ -1,23 +1,60 @@
-const Joi = require('joi');
+const mongoose = require('mongoose');
 
-const productValidationSchema = Joi.object({
-  name: Joi.string().required(),
-  description: Joi.string().required(),
-  category: Joi.string().required(),
-  price: Joi.number().required(),
-  brand: Joi.string().required(),
-  currency: Joi.string().valid('USD', 'EUR', 'GBP', 'INR', 'AUD').default('USD'),
-  stock_quantity: Joi.number().required(),
-  colors_available: Joi.array().items(Joi.string()).required(),
-  imageUrl: Joi.string().uri().required(),
-  rating: Joi.number().default(0),
-  reviews_count: Joi.number().default(0),
-  features: Joi.array().items(Joi.string()).required()
+const productSchema = mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  description: {
+    type: String,
+    required: true
+  },
+  category: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true
+  },
+  brand: {
+    type: String,
+    required: true
+  },
+  currency: {
+    type: String,
+    required: true,
+    enum: ['USD', 'EUR', 'GBP', 'INR', 'AUD'],
+    default: 'USD'
+  },
+  stock_quantity: {
+    type: Number,
+    required: true
+  },
+  colors_available: {
+    type: [String],
+    required: true
+  },
+  imageUrl: {
+    type: String,
+    required: true
+  },
+  rating: {
+    type: Number,
+    default: 0
+  },
+  reviews_count: {
+    type: Number,
+    default: 0
+  },
+  features: [
+    {
+      type: String,
+      required: true
+    }
+  ]
 });
 
-const collectionName = 'products';
+const productModel = mongoose.model('products', productSchema);
+module.exports = productModel;
 
-module.exports = {
-  collectionName,
-  productValidationSchema
-};
