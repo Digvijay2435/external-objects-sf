@@ -2,22 +2,21 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/product.model');
 
-// OData endpoint for Products
 router.get('/Products', async (req, res) => {
   try {
     let query = Product.find();
     
-    // Handle $top
+
     if (req.query.$top) {
       query = query.limit(parseInt(req.query.$top));
     }
     
-    // Handle $skip
+
     if (req.query.$skip) {
       query = query.skip(parseInt(req.query.$skip));
     }
     
-    // Handle $orderby
+
     if (req.query.$orderby) {
       const orderBy = req.query.$orderby.split(' ');
       const sort = {};
@@ -58,7 +57,7 @@ router.get('/Products', async (req, res) => {
   }
 });
 
-// Get single product by ID - CORRECTED for Salesforce OData format
+
 router.get('/Products\\(:id\\)', async (req, res) => {
   try {
     let productId = req.params.id;
@@ -109,7 +108,7 @@ router.get('/Products\\(:id\\)', async (req, res) => {
   }
 });
 
-// OData metadata endpoint
+
 router.get('/$metadata', (req, res) => {
   const metadata = `<?xml version="1.0" encoding="utf-8"?>
 <edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
@@ -144,7 +143,7 @@ router.get('/$metadata', (req, res) => {
   res.send(metadata);
 });
 
-// Service document
+
 router.get('/', (req, res) => {
   res.json({
     "@odata.context": `${req.protocol}://${req.get('host')}${req.baseUrl}/$metadata`,
@@ -158,7 +157,7 @@ router.get('/', (req, res) => {
   });
 });
 
-// Count endpoint - CORRECTED for Salesforce
+
 router.get('/Products/$count', async (req, res) => {
   try {
     const count = await Product.countDocuments();
